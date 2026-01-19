@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # Redis - Message broker and result backend
+  redis:
+    image: redis:7-alpine
+    container_name: file_converter_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - converter_network
+
+  # FastAPI Application
+  fastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: file_converter_api
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./storage:/app/storage
+      - ./.env:/app/.env
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - converter_network
+    restart: unless-stopped
+
+  # Celery Worker(s)
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: file_converter_worker
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./storage:/app/storage
+      - ./.env:/app/.env
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - converter_network
+    restart: unless-stopped
+    # Scale workers with: docker-compose up --scale celery-worker=3
+
+  # Flower - Celery monitoring
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: file_converter_flower
+    command: celery -A app.celery_app flower --port=5555
+    ports:
+      - "5555:5555"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./.env:/app/.env
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - converter_network
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+    driver: local
+
+networks:
+  converter_network:
+    driver: bridge

@@ -1,0 +1,31 @@
+# Celery Worker Dockerfile
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies (includes LibreOffice for document conversion)
+RUN apt-get update && apt-get install -y \
+    libreoffice \
+    poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY ./app ./app
+COPY .env .env
+
+# Create storage directories
+RUN mkdir -p storage/uploads storage/outputs
+
+# Run Celery worker with autoscaling
+# --autoscale=10,2 means scale between 2 and 10 worker processes
+CMD ["celery", "-A", "app.celery_app", "worker", \
+     "--loglevel=info", \
+     "--autoscale=10,2", \
+     "--max-tasks-per-child=100"]
