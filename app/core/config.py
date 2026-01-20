@@ -56,7 +56,7 @@ class Settings(BaseSettings):
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
     
     # Redis & Celery Configuration
-    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_URL: str = os.getenv("REDIS_URL")
     CELERY_BROKER_URL: str = ""
     CELERY_RESULT_BACKEND: str = ""
     
