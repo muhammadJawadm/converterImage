@@ -5,6 +5,7 @@ Endpoint for monitoring API health, dependencies, and Celery workers
 from fastapi import APIRouter
 from datetime import datetime
 import os
+import shutil
 
 from app.api.schemas.conversion import HealthResponse
 from app.core.config import settings
@@ -72,7 +73,7 @@ async def health_check():
     
     # Check LibreOffice (optional - won't fail health check)
     try:
-        if os.path.exists(settings.LIBREOFFICE_PATH):
+        if shutil.which("soffice"):
             checks["libreoffice"] = "ok"
         else:
             checks["libreoffice"] = "not found (required for Word/Excel conversions)"
