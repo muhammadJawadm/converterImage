@@ -39,12 +39,19 @@ class WordToPdfConverter(BaseConverter):
             # Get output directory
             output_dir = output_path.parent
             
+            def get_libreoffice_cmd():
+                cmd = shutil.which("soffice")
+                if not cmd:
+                    raise RuntimeError("LibreOffice (soffice) not found in PATH")
+                return cmd
+
+
             # LibreOffice command
             # --headless: run without GUI
             # --convert-to pdf: output format
             # --outdir: output directory
             command = [
-                self.libreoffice_path,
+                get_libreoffice_cmd(),
                 "--headless",
                 "--convert-to", "pdf",
                 "--outdir", str(output_dir),

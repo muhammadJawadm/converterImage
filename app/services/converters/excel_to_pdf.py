@@ -3,6 +3,7 @@ Excel to PDF Converter
 Converts Excel spreadsheets to PDF using LibreOffice headless mode
 """
 import subprocess
+import shutil
 import os
 from pathlib import Path
 from typing import Tuple
@@ -39,9 +40,16 @@ class ExcelToPdfConverter(BaseConverter):
             # Get output directory
             output_dir = output_path.parent
             
+            def get_libreoffice_cmd():
+                cmd = shutil.which("soffice")
+                if not cmd:
+                    raise RuntimeError("LibreOffice (soffice) not found in PATH")
+                return cmd
+
+
             # LibreOffice command for Excel to PDF
             command = [
-                self.libreoffice_path,
+                get_libreoffice_cmd(),
                 "--headless",
                 "--convert-to", "pdf",
                 "--outdir", str(output_dir),
