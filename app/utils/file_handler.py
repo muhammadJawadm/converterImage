@@ -1,16 +1,49 @@
 """
 File Handling Utilities
 Provides secure file operations, validation, and management
+Supports local storage, Supabase cloud storage, and AWS S3
 """
 import os
 import uuid
 import re
 import mimetypes
+import tempfile
 from pathlib import Path
 from typing import Optional, Tuple
 from datetime import datetime, timedelta
 from fastapi import UploadFile, HTTPException
 from app.core.config import settings
+
+# Lazy import storage clients to avoid initialization errors
+_supabase_storage = None
+_s3_storage = None
+
+
+def _get_supabase_storage():
+    """Lazy load Supabase storage"""
+    global _supabase_storage
+    if _supabase_storage is None and settings.USE_SUPABASE_STORAGE:
+        from app.utils.supabase_storage import get_supabase_storage
+        _supabase_storage = get_supabase_storage()
+    return _supabase_storage
+
+
+def _get_s3_storage():
+    """Lazy load S3 storage"""
+    global _s3_storage
+    if _s3_storage is None and settings.USE_S3_STORAGE:
+        from app.utils.s3_storage import get_s3_storage
+        _s3_storage = get_s3_storage()
+    return _s3_storage
+
+
+def _get_active_storage():
+    """Get the active cloud storage client"""
+    if settings.USE_S3_STORAGE:
+        return _get_s3_storage()
+    elif settings.USE_SUPABASE_STORAGE:
+        return _get_supabase_storage()
+    return None
 
 
 def generate_job_id() -> str:
@@ -124,13 +157,14 @@ async def validate_file_size(file: UploadFile) -> Tuple[bool, str]:
 async def save_upload_file(file: UploadFile, job_id: str) -> Path:
     """
     Save uploaded file to storage with sanitized name
+    Uploads to S3/Supabase if enabled, otherwise saves locally
     
     Args:
         file: Uploaded file object
         job_id: Unique job identifier
         
     Returns:
-        Path to saved file
+        Path to saved file (local temp path if using cloud storage, or local storage path)
     """
     # Sanitize filename
     safe_filename = sanitize_filename(file.filename)
@@ -139,15 +173,40 @@ async def save_upload_file(file: UploadFile, job_id: str) -> Path:
     extension = get_file_extension(safe_filename)
     unique_filename = f"{job_id}_input.{extension}"
     
-    # Full path
-    file_path = settings.upload_path / unique_filename
-    
-    # Save file
+    # Read file content
     content = await file.read()
-    with open(file_path, "wb") as f:
-        f.write(content)
     
-    return file_path
+    cloud_storage = _get_active_storage()
+    
+    if cloud_storage and cloud_storage.is_enabled():
+        # Create temporary file for processing
+        temp_dir = Path(tempfile.gettempdir()) / "pdfconverter"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        file_path = temp_dir / unique_filename
+        
+        # Save temporarily
+        with open(file_path, "wb") as f:
+            f.write(content)
+        
+        # Upload to cloud storage (S3 or Supabase)
+        destination_path = f"uploads/{unique_filename}"
+        success, message, public_url = await cloud_storage.upload_file(
+            file_path, destination_path
+        )
+        
+        if not success:
+            # Clean up temp file
+            file_path.unlink(missing_ok=True)
+            raise HTTPException(status_code=500, detail=f"Failed to upload to cloud storage: {message}")
+        
+        # Return temp path for processing (will be cleaned up later)
+        return file_path
+    else:
+        # Save locally
+        file_path = settings.upload_path / unique_filename
+        with open(file_path, "wb") as f:
+            f.write(content)
+        return file_path
 
 
 def get_output_file_path(job_id: str, output_extension: str) -> Path:
@@ -159,10 +218,78 @@ def get_output_file_path(job_id: str, output_extension: str) -> Path:
         output_extension: Extension for output file (without dot)
         
     Returns:
-        Path for output file
+        Path for output file (temp path if using cloud storage, or local storage path)
     """
     filename = f"{job_id}_output.{output_extension}"
-    return settings.output_path / filename
+    
+    cloud_storage = _get_active_storage()
+    
+    if cloud_storage and cloud_storage.is_enabled():
+        # Use temp directory for cloud storage
+        temp_dir = Path(tempfile.gettempdir()) / "pdfconverter"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        return temp_dir / filename
+    else:
+        return settings.output_path / filename
+
+
+async def save_output_file(file_path: Path, job_id: str) -> Tuple[bool, str, Optional[str]]:
+    """
+    Save output file to cloud storage if enabled
+    
+    Args:
+        file_path: Local file path to upload
+        job_id: Job identifier
+        
+    Returns:
+    cloud_storage = _get_active_storage()
+    
+    if not cloud_storage or not cloud_storage.is_enabled():
+        return True, "File saved locally", None
+    
+    # Upload to cloud storage (S3 or Supabase)
+    destination_path = f"outputs/{file_path.name}"
+    success, message, public_url = await cloud
+    destination_path = f"outputs/{file_path.name}"
+    success, message, public_url = await supabase_storage.upload_file(
+        file_path, destination_path
+    )
+    
+    if success:
+        # Clean up local temp file
+        file_path.unlink(missing_ok=True)
+    
+    return success, message, public_url
+
+
+async def get_file_from_storage(job_id: str, file_path: Path) -> Path:
+    """cloud storage if needed)
+    
+    Args:
+        job_id: Job identifier
+        file_path: Expected file path
+        
+    Returns:
+        Local file path
+    """
+    cloud_storage = _get_active_storage()
+    
+    if not cloud_storage or not cloud_storage.is_enabled():
+        return file_path
+    
+    # Check if file exists locally
+    if file_path.exists():
+        return file_path
+    
+    # Download from cloud storage (S3 or Supabase)
+    source_path = f"outputs/{file_path.name}"
+    success, message = await cloudh.name}"
+    success, message = await supabase_storage.download_file(source_path, file_path)
+    
+    if not success:
+        raise FileNotFoundError(f"Failed to download file from cloud storage: {message}")
+    
+    return file_path
 
 
 def cleanup_old_files(retention_hours: Optional[int] = None):
@@ -175,6 +302,27 @@ def cleanup_old_files(retention_hours: Optional[int] = None):
     if retention_hours is None:
         retention_hours = settings.FILE_RETENTION_HOURS
     
+    cloud_storage = _get_active_storage()
+    
+    if cloud_storage and cloud_storage.is_enabled():
+        # Use cloud storage cleanup
+        try:
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            deleted_count = loop.run_until_complete(
+                cloud_storage.cleanup_old_files(retention_hours)
+            )
+            return deleted_count
+        except Exception as e:
+            print(f"⚠️  Cloud storage cleanup failed: {e}")
+            return 0
+    
+    # Local storage cleanup
     cutoff_time = datetime.now() - timedelta(hours=retention_hours)
     deleted_count = 0
     

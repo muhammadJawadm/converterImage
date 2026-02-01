@@ -73,7 +73,11 @@ async def health_check():
     
     # Check LibreOffice (optional - won't fail health check)
     try:
+        # Check if soffice is in PATH
         if shutil.which("soffice"):
+            checks["libreoffice"] = "ok"
+        # Check configured LibreOffice path
+        elif os.path.exists(settings.LIBREOFFICE_PATH):
             checks["libreoffice"] = "ok"
         else:
             checks["libreoffice"] = "not found (required for Word/Excel conversions)"

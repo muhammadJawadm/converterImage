@@ -5,17 +5,42 @@ A scalable, production-ready REST API for converting files between various forma
 ## 🚀 Features
 
 - **Multiple Format Support**: PDF ↔ Word, Excel → PDF, Image ↔ PDF
+- **Cloud Storage Options**: AWS S3, Supabase, or Local Storage
 - **Distributed Processing**: Celery + Redis for scalable background tasks
 - **Multiple Task Queues**: Separate queues for different conversion types
 - **Real-time Monitoring**: Flower dashboard for task inspection
 - **Docker Support**: Complete containerized deployment
+- **Cloud Deployments**: AWS EC2, Railway, or self-hosted
 - **Async Processing**: Non-blocking API with progress tracking
 - **REST API**: Clean, well-documented endpoints
 - **File Validation**: MIME type, extension, and size validation
 - **Security**: Filename sanitization, directory traversal prevention
-- **Auto-cleanup**: Automatic removal of old files
+- **Auto-cleanup**: Automatic removal of old files from cloud storage
 - **CORS Support**: Ready for frontend integration
 - **Health Monitoring**: Health check endpoint for all services
+
+## 📚 Deployment Guides
+
+Choose your deployment platform:
+
+### ☁️ AWS EC2 with S3 Storage (Recommended for Production)
+- **[AWS Deployment Overview](AWS_README.md)** - Start here
+- **[Complete EC2 Setup Guide](AWS_EC2_DEPLOYMENT_GUIDE.md)** - Step-by-step instructions
+- **[Quick Reference](AWS_EC2_QUICK_REFERENCE.md)** - Commands and troubleshooting
+- **[Deployment Checklist](AWS_DEPLOYMENT_CHECKLIST.md)** - Track your progress
+- **Features**: Scalable, cost-effective, S3 storage, production-ready
+- **Cost**: ~$47/month (can be optimized)
+
+### 🚂 Railway with Supabase (Quick Deploy)
+- **[Railway Deployment Guide](RAILWAY_DEPLOYMENT.md)** - One-click deployment
+- **[Supabase Setup](SUPABASE_SETUP.md)** - Cloud storage configuration
+- **Features**: Zero-config deployment, free tier available
+- **Best for**: Quick prototypes, small projects
+
+### 🐳 Docker Compose (Self-Hosted)
+- **Quick Start**: See Docker section below
+- **Features**: Easy local development, portable deployment
+- **Best for**: Development, testing, small-scale production
 
 ## 🏗️ Architecture
 
@@ -45,13 +70,20 @@ Client → FastAPI → Redis → Celery Workers → File Storage
 
 ### Required
 - **Python 3.11+**
+- **Redis** (for Celery message broker)
 - **LibreOffice** (for Word/Excel conversions)
   - Windows: Download from https://www.libreoffice.org/download/
-  - Default path: `C:\Program Files\LibreOffice\program\soffice.exe`
+  - Linux: `apt-get install libreoffice`
+
+### For Cloud Deployment (Railway, etc.)
+- **Supabase Account** (for cloud storage)
+  - Free tier available: https://supabase.com
+  - See [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md) for setup
 
 ### Optional
 - **poppler** (for PDF to Image conversion)
   - Windows: Download from https://github.com/oschwartz10612/poppler-windows/releases
+  - Linux: `apt-get install poppler-utils`
 
 ## 📦 Installation
 
@@ -75,7 +107,24 @@ Client → FastAPI → Redis → Celery Workers → File Storage
    ```bash
    copy .env.example .env
    ```
-   Edit `.env` to customize settings (optional)
+   Edit `.env` to customize settings:
+   
+   **For Local Development:**
+   - Set `USE_SUPABASE_STORAGE=False`
+   - Set `USE_S3_STORAGE=False`
+   - Files stored in `storage/` directory
+   
+   **For AWS EC2 Deployment:**
+   - Set `USE_S3_STORAGE=True`
+   - Set `USE_SUPABASE_STORAGE=False`
+   - Set `S3_BUCKET_NAME` and `AWS_REGION`
+   - See [AWS_EC2_DEPLOYMENT_GUIDE.md](AWS_EC2_DEPLOYMENT_GUIDE.md)
+   
+   **For Cloud Deployment (Railway, etc.):**
+   - Set `USE_SUPABASE_STORAGE=True`
+   - Set `USE_S3_STORAGE=False`
+   - Add Supabase credentials
+   - See [SUPABASE_QUICK_START.md](SUPABASE_QUICK_START.md)
 
 5. **Install LibreOffice**
    - Download and install from https://www.libreoffice.org/download/

@@ -55,6 +55,18 @@ class Settings(BaseSettings):
         """Get list of allowed CORS origins"""
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
     
+    # Supabase Storage Configuration
+    USE_SUPABASE_STORAGE: bool = True
+    SUPABASE_URL: str = ""
+    SUPABASE_KEY: str = ""
+    SUPABASE_BUCKET_NAME: str = "file-conversions"
+    
+    # AWS S3 Storage Configuration
+    USE_S3_STORAGE: bool = False
+    AWS_REGION: str = "us-east-1"
+    S3_BUCKET_NAME: str = ""
+    S3_PRESIGNED_URL_EXPIRATION: int = 3600  # 1 hour
+    
     # Redis & Celery Configuration
     REDIS_URL: str = "redis://localhost:6379/0"
     CELERY_BROKER_URL: str = ""

@@ -22,12 +22,19 @@ async def lifespan(app: FastAPI):
     print(f"🚀 Starting {settings.APP_NAME} v{settings.APP_VERSION}")
     print(f"{'='*60}\n")
     
-    # Create storage directories
-    create_directories()
+    # Create storage directories (only if using local storage)
+    if not settings.USE_SUPABASE_STORAGE:
+        create_directories()
+    else:
+        print("☁️  Using Supabase cloud storage")
+        print(f"  - Bucket: {settings.SUPABASE_BUCKET_NAME}")
     
-    # Initial cleanup of old files
-    print("\n🧹 Running initial file cleanup...")
-    cleanup_old_files()
+    # Skip initial cleanup to speed up startup
+    # print("\n🧹 Running initial file cleanup...")
+    # try:
+    #     cleanup_old_files()
+    # except Exception as e:
+    #     print(f"⚠️  Cleanup skipped: {e}")
     
     print(f"\n✓ API is ready to accept requests!")
     print(f"  - Docs: http://localhost:8000/docs")

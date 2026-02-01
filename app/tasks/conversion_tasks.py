@@ -8,7 +8,7 @@ from pathlib import Path
 import logging
 
 from app.celery_app import celery_app
-from app.utils.file_handler import get_output_file_path
+from app.utils.file_handler import get_output_file_path, save_output_file
 from app.services.converters.pdf_to_word import PdfToWordConverter
 from app.services.converters.word_to_pdf import WordToPdfConverter
 from app.services.converters.excel_to_pdf import ExcelToPdfConverter
@@ -100,16 +100,24 @@ def convert_file_task(self, job_id: str, input_path: str, from_format: str, to_f
         if not success:
             raise Exception(f"Conversion failed: {message}")
         
-        # Update progress
+        # Upload output to Supabase if enabled
         self.update_state(
             state='PROGRESS',
-            meta={'progress': 90, 'status': 'Finalizing...'}
+            meta={'progress': 90, 'status': 'Uploading to cloud storage...'}
         )
+        
+        upload_success, upload_message, public_url = loop.run_until_complete(
+            save_output_file(output_file, job_id)
+        )
+        
+        if not upload_success:
+            raise Exception(f"Failed to save output file: {upload_message}")
         
         # Return result
         return {
             'job_id': job_id,
             'output_path': str(output_file),
+            'public_url': public_url,
             'from_format': from_format,
             'to_format': to_format,
             'status': 'completed',

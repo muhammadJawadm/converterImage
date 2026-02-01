@@ -24,3 +24,11 @@ flower==2.0.1
 
 # Utilities
 aiofiles==23.2.1
+
+# Supabase Storage (with compatible httpx version)
+supabase==2.7.4
+httpx==0.25.2
+
+# AWS S3 Storage
+boto3==1.34.34
+botocore==1.34.34

@@ -4,6 +4,7 @@ Converts Word documents to PDF using LibreOffice headless mode
 """
 import subprocess
 import os
+import shutil
 from pathlib import Path
 from typing import Tuple
 from app.core.config import settings
@@ -32,26 +33,25 @@ class WordToPdfConverter(BaseConverter):
             if not self.validate_input(input_path):
                 return False, f"Input file not found or invalid: {input_path}"
             
-            # Check if LibreOffice is available
-            if not os.path.exists(self.libreoffice_path):
-                return False, f"LibreOffice not found at {self.libreoffice_path}. Please install LibreOffice."
-            
             # Get output directory
             output_dir = output_path.parent
             
-            def get_libreoffice_cmd():
-                cmd = shutil.which("soffice")
-                if not cmd:
-                    raise RuntimeError("LibreOffice (soffice) not found in PATH")
-                return cmd
-
-
+            # Try to find LibreOffice in PATH first, then fall back to configured path
+            libreoffice_cmd = shutil.which("soffice")
+            
+            if not libreoffice_cmd:
+                # Check configured path
+                if os.path.exists(self.libreoffice_path):
+                    libreoffice_cmd = self.libreoffice_path
+                else:
+                    return False, f"LibreOffice not found. Please install LibreOffice or set LIBREOFFICE_PATH."
+            
             # LibreOffice command
             # --headless: run without GUI
             # --convert-to pdf: output format
             # --outdir: output directory
             command = [
-                get_libreoffice_cmd(),
+                libreoffice_cmd,
                 "--headless",
                 "--convert-to", "pdf",
                 "--outdir", str(output_dir),

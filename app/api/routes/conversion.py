@@ -19,9 +19,11 @@ from app.utils.file_handler import (
     validate_file_size,
     save_upload_file,
     validate_conversion_format,
-    get_file_extension
+    get_file_extension,
+    get_file_from_storage
 )
 from app.tasks.conversion_tasks import convert_file_task
+from app.core.config import settings
 
 
 router = APIRouter(prefix="/api", tags=["conversion"])
@@ -217,6 +219,22 @@ async def download_converted_file(job_id: str):
         
         # Get output file path
         output_path = Path(result_data['output_path'])
+        
+        # For Supabase storage, check if we have a public URL
+        if settings.USE_SUPABASE_STORAGE and result_data.get('public_url'):
+            from fastapi.responses import RedirectResponse
+            # Create signed URL for secure download
+            from app.utils.supabase_storage import get_supabase_storage
+            supabase_storage = get_supabase_storage()
+            signed_url = supabase_storage.create_signed_url(
+                f"outputs/{output_path.name}",
+                expiry_seconds=3600  # 1 hour
+            )
+            if signed_url:
+                return RedirectResponse(url=signed_url)
+        
+        # Download from Supabase if needed
+        output_path = await get_file_from_storage(job_id, output_path)
         
         # Check if file exists, or if .zip exists (multi-page PDF to images)
         if not output_path.exists():
