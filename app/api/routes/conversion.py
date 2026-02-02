@@ -220,8 +220,19 @@ async def download_converted_file(job_id: str):
         # Get output file path
         output_path = Path(result_data['output_path'])
         
+        # For S3 storage, check if we have a public URL or create presigned URL
+        if settings.USE_S3_STORAGE and result_data.get('public_url'):
+            from fastapi.responses import RedirectResponse
+            # Create presigned URL for secure download from S3
+            from app.utils.s3_storage import get_s3_storage
+            s3_storage = get_s3_storage()
+            if s3_storage and s3_storage.is_enabled():
+                presigned_url = s3_storage.get_presigned_url(f"outputs/{output_path.name}")
+                if presigned_url:
+                    return RedirectResponse(url=presigned_url)
+        
         # For Supabase storage, check if we have a public URL
-        if settings.USE_SUPABASE_STORAGE and result_data.get('public_url'):
+        elif settings.USE_SUPABASE_STORAGE and result_data.get('public_url'):
             from fastapi.responses import RedirectResponse
             # Create signed URL for secure download
             from app.utils.supabase_storage import get_supabase_storage
@@ -233,7 +244,7 @@ async def download_converted_file(job_id: str):
             if signed_url:
                 return RedirectResponse(url=signed_url)
         
-        # Download from Supabase if needed
+        # Download from cloud storage if needed
         output_path = await get_file_from_storage(job_id, output_path)
         
         # Check if file exists, or if .zip exists (multi-page PDF to images)

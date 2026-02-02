@@ -242,6 +242,8 @@ async def save_output_file(file_path: Path, job_id: str) -> Tuple[bool, str, Opt
         job_id: Job identifier
         
     Returns:
+        Tuple of (success, message, public_url)
+    """
     cloud_storage = _get_active_storage()
     
     if not cloud_storage or not cloud_storage.is_enabled():
@@ -249,9 +251,7 @@ async def save_output_file(file_path: Path, job_id: str) -> Tuple[bool, str, Opt
     
     # Upload to cloud storage (S3 or Supabase)
     destination_path = f"outputs/{file_path.name}"
-    success, message, public_url = await cloud
-    destination_path = f"outputs/{file_path.name}"
-    success, message, public_url = await supabase_storage.upload_file(
+    success, message, public_url = await cloud_storage.upload_file(
         file_path, destination_path
     )
     
@@ -263,7 +263,8 @@ async def save_output_file(file_path: Path, job_id: str) -> Tuple[bool, str, Opt
 
 
 async def get_file_from_storage(job_id: str, file_path: Path) -> Path:
-    """cloud storage if needed)
+    """
+    Get file from local storage or download from cloud storage if needed
     
     Args:
         job_id: Job identifier
@@ -283,8 +284,7 @@ async def get_file_from_storage(job_id: str, file_path: Path) -> Path:
     
     # Download from cloud storage (S3 or Supabase)
     source_path = f"outputs/{file_path.name}"
-    success, message = await cloudh.name}"
-    success, message = await supabase_storage.download_file(source_path, file_path)
+    success, message = await cloud_storage.download_file(source_path, file_path)
     
     if not success:
         raise FileNotFoundError(f"Failed to download file from cloud storage: {message}")
