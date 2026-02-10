@@ -56,13 +56,13 @@ class Settings(BaseSettings):
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
     
     # Supabase Storage Configuration
-    USE_SUPABASE_STORAGE: bool = True
+    USE_SUPABASE_STORAGE: bool = False  # Default to False, controlled by .env
     SUPABASE_URL: str = ""
     SUPABASE_KEY: str = ""
     SUPABASE_BUCKET_NAME: str = "file-conversions"
     
     # AWS S3 Storage Configuration
-    USE_S3_STORAGE: bool = False
+    USE_S3_STORAGE: bool = False  # Default to False, controlled by .env
     AWS_REGION: str = "us-east-1"
     S3_BUCKET_NAME: str = ""
     S3_PRESIGNED_URL_EXPIRATION: int = 3600  # 1 hour
